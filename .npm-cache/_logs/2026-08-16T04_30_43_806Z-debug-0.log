@@ -1,0 +1,40 @@
+0 verbose cli /home/xinlei/.nvm/versions/node/v24.18.0/bin/node /home/xinlei/.nvm/versions/node/v24.18.0/lib/node_modules/npm/bin/npm-cli.js
+1 info using npm@11.16.0
+2 info using node@v24.18.0
+3 silly config load:file:/home/xinlei/.nvm/versions/node/v24.18.0/lib/node_modules/npm/npmrc
+4 silly config load:file:/home/xinlei/.npmrc
+5 silly config load:file:/home/xinlei/.nvm/versions/node/v24.18.0/etc/npmrc
+6 verbose title npm exec create-next-app@latest . --ts --tailwind --eslint --app --no-src-dir --import-alias @/* --use-npm --yes
+7 verbose argv "exec" "--yes" "--" "create-next-app@latest" "." "--ts" "--tailwind" "--eslint" "--app" "--no-src-dir" "--import-alias" "@/*" "--use-npm" "--yes"
+8 verbose logfile logs-max:10 dir:/home/xinlei/桌面/deepseek harness/ai-learning-assistant/.npm-cache/_logs/2026-08-16T04_30_43_806Z-
+9 verbose logfile /home/xinlei/桌面/deepseek harness/ai-learning-assistant/.npm-cache/_logs/2026-08-16T04_30_43_806Z-debug-0.log
+10 silly logfile done cleaning log files
+11 silly packumentCache heap:2348810240 maxSize:587202560 maxEntrySize:293601280
+12 http fetch GET 200 https://registry.npmjs.org/npm 1451ms
+13 http fetch GET 200 https://registry.npmjs.org/create-next-app 1852ms (cache miss)
+14 silly packumentCache heap:2348810240 maxSize:587202560 maxEntrySize:293601280
+15 silly packumentCache heap:2348810240 maxSize:587202560 maxEntrySize:293601280
+16 silly idealTree buildDeps
+17 silly fetch manifest create-next-app@16.3.1
+18 silly packumentCache full:https://registry.npmjs.org/create-next-app cache-miss
+19 http fetch GET 200 https://registry.npmjs.org/create-next-app 911ms (cache miss)
+20 silly packumentCache full:https://registry.npmjs.org/create-next-app set size:undefined disposed:false
+21 silly placeDep ROOT create-next-app@16.3.1 OK for:  want: 16.3.1
+22 silly reify moves {}
+23 silly audit bulk request { 'create-next-app': [ '16.3.1' ] }
+24 http cache create-next-app@https://registry.npmjs.org/create-next-app/-/create-next-app-16.3.1.tgz 0ms (cache hit)
+25 silly tarball no local data for create-next-app@https://registry.npmjs.org/create-next-app/-/create-next-app-16.3.1.tgz. Extracting by manifest.
+26 http fetch POST 200 https://registry.npmjs.org/-/npm/v1/security/advisories/bulk 257ms
+27 silly audit report {}
+28 http fetch GET 200 https://registry.npmjs.org/create-next-app/-/create-next-app-16.3.1.tgz 420ms (cache miss)
+29 verbose cwd /home/xinlei/桌面/deepseek harness/ai-learning-assistant/frontend
+30 verbose os Linux 6.6.87.2-microsoft-standard-WSL2
+31 verbose node v24.18.0
+32 verbose npm  v11.16.0
+33 notice
+33 notice New major version of npm available! 11.16.0 -> 12.0.2
+33 notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
+33 notice To update run: npm install -g npm@12.0.2
+33 notice  { force: true, Symbol(proc-log.meta): true }
+34 verbose exit 0
+35 info ok
