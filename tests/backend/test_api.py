@@ -248,6 +248,23 @@ def test_chat_stream_error_keeps_user_message(client, app_env):
     assert hist["messages"][0]["content"] == "会失败的问题"
 
 
+def test_document_content_preview(client):
+    """全文预览接口：返回章节与正文。"""
+    doc = _upload_txt(client)
+    resp = client.get(f"/api/documents/{doc['id']}/content")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["original_name"] == "python_notes.md"
+    assert len(data["sections"]) >= 1
+    assert "装饰器" in data["sections"][0]["text"]
+    assert resp.headers["content-type"].startswith("application/json")
+
+
+def test_document_content_not_ready(client):
+    resp = client.get("/api/documents/99999/content")
+    assert resp.status_code == 404
+
+
 def test_settings_endpoint(client):
     data = client.get("/api/settings").json()
     assert data["ai_provider"] == "fake"

@@ -47,6 +47,9 @@ export const api = {
   getDocument(id: number): Promise<DocumentItem> {
     return request(`/api/documents/${id}`);
   },
+  getDocumentContent(id: number): Promise<DocumentContent> {
+    return request(`/api/documents/${id}/content`);
+  },
   deleteDocument(id: number): Promise<{ ok: boolean }> {
     return request(`/api/documents/${id}`, { method: "DELETE" });
   },
@@ -137,6 +140,14 @@ export const api = {
     return request("/api/settings");
   },
 };
+
+export interface DocumentContent {
+  document_id: number;
+  original_name: string;
+  file_type: string;
+  page_count: number;
+  sections: { path: string; page: number; text: string }[];
+}
 
 export interface StreamHandlers {
   onDelta: (text: string) => void;

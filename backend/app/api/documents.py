@@ -163,6 +163,30 @@ def get_document(doc_id: int, db: Session = Depends(get_db)):
     return doc
 
 
+@router.get("/{doc_id}/content")
+def get_document_content(doc_id: int, db: Session = Depends(get_db)):
+    """返回资料全文（按章节组织，含页码），用于预览。"""
+    doc = db.get(Document, doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="资料不存在")
+    if doc.status != "ready":
+        raise HTTPException(status_code=400, detail=f"资料未处理完成（当前状态: {doc.status}）")
+    upload_path = Path(settings.upload_dir) / doc.stored_name
+    if not upload_path.exists():
+        raise HTTPException(status_code=404, detail="原始文件已丢失")
+    parsed = parsers.parse_document(str(upload_path), doc.file_type)
+    return {
+        "document_id": doc.id,
+        "original_name": doc.original_name,
+        "file_type": doc.file_type,
+        "page_count": parsed.page_count,
+        "sections": [
+            {"path": s.path, "page": s.page, "text": s.text}
+            for s in parsed.sections
+        ],
+    }
+
+
 @router.delete("/{doc_id}")
 def delete_document(doc_id: int, db: Session = Depends(get_db)):
     doc = db.get(Document, doc_id)

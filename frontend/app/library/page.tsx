@@ -5,6 +5,7 @@ import { api } from "../../lib/api";
 import { formatBytes, formatTime } from "../../lib/format";
 import type { DocumentItem } from "../../lib/types";
 import { Button, Card, EmptyState, ErrorNote, PageHeader, Spinner, StatusBadge } from "../../components/ui";
+import DocumentPreview from "../../components/DocumentPreview";
 
 const ACCEPT = ".pdf,.docx,.md,.txt";
 
@@ -16,6 +17,7 @@ export default function LibraryPage() {
   const [dragOver, setDragOver] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [chaptersMap, setChaptersMap] = useState<Record<number, DocumentItem["chapters"]>>({});
+  const [previewId, setPreviewId] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -149,6 +151,14 @@ export default function LibraryPage() {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    variant="secondary"
+                    className="px-2.5 py-1.5"
+                    onClick={() => setPreviewId(doc.id)}
+                    disabled={doc.status !== "ready"}
+                  >
+                    预览
+                  </Button>
                   <Button variant="secondary" className="px-2.5 py-1.5" onClick={() => toggleChapters(doc.id)}>
                     {expanded === doc.id ? "收起" : "章节"}
                   </Button>
@@ -182,6 +192,15 @@ export default function LibraryPage() {
           ))
         )}
       </div>
+
+      {/* 全文预览弹窗 */}
+      {previewId !== null && (
+        <DocumentPreview
+          documentId={previewId}
+          title={docs.find((d) => d.id === previewId)?.original_name ?? "资料预览"}
+          onClose={() => setPreviewId(null)}
+        />
+      )}
     </div>
   );
 }
