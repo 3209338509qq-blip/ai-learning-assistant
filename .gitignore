@@ -14,6 +14,7 @@ node_modules/
 out/
 *.tsbuildinfo
 npm-debug.log*
+.npm-cache/
 
 # ---- 环境变量（含密钥，绝不提交）----
 .env
