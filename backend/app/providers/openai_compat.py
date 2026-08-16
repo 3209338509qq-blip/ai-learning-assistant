@@ -9,6 +9,7 @@ import httpx
 
 from ..config import settings
 from .base import AIProvider, ChatMessage
+from .local_embedding import embed as local_embed
 
 
 class OpenAICompatibleProvider(AIProvider):
@@ -74,10 +75,13 @@ class OpenAICompatibleProvider(AIProvider):
         return base, key
 
     def embed(self, texts: list[str]) -> list[list[float]]:
+        if settings.embedding_provider == "local":
+            return local_embed(texts)
         if not self.embedding_configured():
             raise RuntimeError(
                 "Embedding 未配置：请设置 EMBEDDING_BASE_URL/EMBEDDING_API_KEY"
-                "（DeepSeek 官方无 embedding 端点，可用硅基流动等兼容服务）"
+                "（DeepSeek 官方无 embedding 端点，可用硅基流动等兼容服务，"
+                "或将 EMBEDDING_PROVIDER=local 使用本地模型）"
             )
         base, key = self._embed_config()
         url = f"{self._base_url(base)}/embeddings"
@@ -114,6 +118,8 @@ class OpenAICompatibleProvider(AIProvider):
         return bool(settings.ai_api_key and settings.ai_chat_model)
 
     def embedding_configured(self) -> bool:
+        if settings.embedding_provider == "local":
+            return True
         base = settings.embedding_base_url or settings.ai_base_url
         key = settings.embedding_api_key or settings.ai_api_key
         return bool(base and key and settings.embedding_model)

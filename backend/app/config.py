@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     ai_timeout_seconds: int = 180
 
     # ---------- Embedding（独立可配）----------
+    # api: OpenAI 兼容远端服务（配 EMBEDDING_BASE_URL/KEY）
+    # local: 本地 fastembed 模型（无需 Key，默认推荐）
+    embedding_provider: str = "local"
     embedding_base_url: str = ""
     embedding_api_key: str = ""
     embedding_model: str = "BAAI/bge-m3"
