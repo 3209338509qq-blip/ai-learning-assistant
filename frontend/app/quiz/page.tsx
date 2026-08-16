@@ -246,7 +246,7 @@ function QuestionBlock({
     <div>
       <p className="text-sm font-medium text-zinc-800">
         {index + 1}. {q.question}
-        <Badge tone="zinc" >{TYPE_LABELS[q.qtype] ?? q.qtype}</Badge>
+        <Badge tone="zinc">{TYPE_LABELS[q.qtype] ?? q.qtype}</Badge>
         {q.difficulty === "hard" && <Badge tone="red">难</Badge>}
         {q.difficulty === "easy" && <Badge tone="blue">易</Badge>}
       </p>

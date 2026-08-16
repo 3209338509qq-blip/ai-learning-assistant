@@ -29,18 +29,22 @@ export default function LibraryPage() {
     }
   }, []);
 
+  const [hasPending, setHasPending] = useState(false);
+
+  useEffect(() => {
+    setHasPending(docs.some((d) => d.status === "pending" || d.status === "processing"));
+  }, [docs]);
+
   useEffect(() => {
     refresh();
-    // 上传后轮询状态
-    const timer = setInterval(() => {
-      setDocs((prev) => {
-        const hasPending = prev.some((d) => d.status === "pending" || d.status === "processing");
-        if (hasPending) refresh();
-        return prev;
-      });
-    }, 2500);
-    return () => clearInterval(timer);
   }, [refresh]);
+
+  // 有资料在处理中时轮询状态
+  useEffect(() => {
+    if (!hasPending) return;
+    const timer = setInterval(refresh, 2000);
+    return () => clearInterval(timer);
+  }, [hasPending, refresh]);
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
