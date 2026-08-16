@@ -13,6 +13,7 @@ export interface DocumentItem {
   original_name: string;
   file_type: string;
   size_bytes: number;
+  subject: string;
   status: "pending" | "processing" | "ready" | "failed";
   error: string;
   chunk_count: number;
@@ -20,6 +21,11 @@ export interface DocumentItem {
   created_at: string;
   updated_at: string;
   chapters?: Chapter[];
+}
+
+export interface SubjectCount {
+  subject: string;
+  count: number;
 }
 
 export interface SourceRef {

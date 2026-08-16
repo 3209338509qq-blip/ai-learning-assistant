@@ -40,12 +40,18 @@ export default function ChatPage() {
   const [currentId, setCurrentId] = useState<number | null>(null);
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState("");
+  const [subject, setSubject] = useState(""); // 空=全部学科
+  const [subjects, setSubjects] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.listConversations().then(setConversations).catch(() => setConversations([]));
+    api
+      .listSubjects()
+      .then((list) => setSubjects(list.map((s) => s.subject)))
+      .catch(() => setSubjects([]));
   }, []);
 
   useEffect(() => {
@@ -92,7 +98,7 @@ export default function ChatPage() {
     ]);
     setSending(true);
     try {
-      await streamChat(text, targetConvId, {
+      await streamChat(text, targetConvId, subject, {
         onDelta: (delta) => {
           setMessages((prev) =>
             prev.map((m, i) => (i === aiIndex ? { ...m, content: m.content + delta } : m))
@@ -123,6 +129,32 @@ export default function ChatPage() {
         </div>
         <Button variant="secondary" onClick={newConversation} disabled={sending}>新对话</Button>
       </div>
+
+      {/* 学科范围选择 */}
+      {subjects.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-zinc-400">检索范围：</span>
+          <button
+            onClick={() => setSubject("")}
+            className={`rounded-full border px-3 py-1 text-xs ${
+              subject === "" ? "border-indigo-600 bg-indigo-600 text-white" : "border-zinc-300 bg-white text-zinc-600"
+            }`}
+          >
+            全部
+          </button>
+          {subjects.map((s) => (
+            <button
+              key={s}
+              onClick={() => setSubject(s)}
+              className={`rounded-full border px-3 py-1 text-xs ${
+                subject === s ? "border-indigo-600 bg-indigo-600 text-white" : "border-zinc-300 bg-white text-zinc-600"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 会话列表（移动端横向滚动） */}
       {conversations.length > 0 && (

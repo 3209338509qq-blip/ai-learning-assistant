@@ -49,7 +49,7 @@ def chat_stream(req: ChatRequest, db: Session = Depends(get_db)):
     def event_gen():
         full = ""
         try:
-            stream, sources, has_evidence = service.stream_chat_with_rag(req.message, history)
+            stream, sources, has_evidence = service.stream_chat_with_rag(req.message, history, subject=req.subject)
             for piece in stream:
                 full += piece
                 yield f"data: {json.dumps({'type': 'delta', 'content': piece}, ensure_ascii=False)}\n\n"
@@ -126,7 +126,7 @@ def chat(req: ChatRequest, db: Session = Depends(get_db)):
         history = [{"role": m.role, "content": m.content} for m in reversed(recent)]
 
     try:
-        answer, sources, has_evidence = service.chat_with_rag(req.message, history)
+        answer, sources, has_evidence = service.chat_with_rag(req.message, history, subject=req.subject)
     except Exception as e:  # noqa: BLE001 - AI 故障返回 502，消息已保存
         raise HTTPException(status_code=502, detail=f"AI 服务调用失败: {str(e)[:300]}") from e
 

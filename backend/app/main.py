@@ -2,11 +2,28 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from sqlalchemy import text
+
 from .api import chat, documents, quizzes, settings as settings_api, summaries, wrong_questions
 from .database import Base, SessionLocal, engine
 from .models import Document
 
 Base.metadata.create_all(bind=engine)
+
+
+def _migrate_schema() -> None:
+    """轻量迁移：为旧数据库补充新增列（SQLite 无原生迁移，按列缺失 ALTER）。"""
+    db = SessionLocal()
+    try:
+        cols = [row[1] for row in db.execute(text("PRAGMA table_info(documents)")).fetchall()]
+        if "subject" not in cols:
+            db.execute(text("ALTER TABLE documents ADD COLUMN subject VARCHAR(64) DEFAULT ''"))
+            db.commit()
+    finally:
+        db.close()
+
+
+_migrate_schema()
 
 
 def _recover_interrupted_documents() -> None:

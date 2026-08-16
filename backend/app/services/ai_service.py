@@ -47,8 +47,9 @@ class AIService:
         query: str,
         history: list[dict] | None = None,
         document_id: int | None = None,
+        subject: str = "",
     ) -> tuple[str, list[dict], bool]:
-        sources = self.store.search(query, document_id=document_id)
+        sources = self.store.search(query, document_id=document_id, subject=subject)
         has_evidence = bool(sources)
         messages = [ChatMessage("system", SYSTEM_PROMPT)]
         for h in history or []:
@@ -84,9 +85,10 @@ class AIService:
         query: str,
         history: list[dict] | None = None,
         document_id: int | None = None,
+        subject: str = "",
     ) -> tuple[Iterator[str], list[dict], bool]:
         """流式 RAG：返回 (文本生成器, 来源列表, 是否有依据)。"""
-        sources = self.store.search(query, document_id=document_id)
+        sources = self.store.search(query, document_id=document_id, subject=subject)
         has_evidence = bool(sources)
         messages = [ChatMessage("system", SYSTEM_PROMPT)]
         for h in history or []:

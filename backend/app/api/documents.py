@@ -4,13 +4,14 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, UploadFile
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..database import SessionLocal, get_db
 from ..models import Chapter, Document
-from ..schemas import DocumentDetail, DocumentOut
+from ..schemas import DocumentDetail, DocumentOut, SubjectCount, SubjectUpdate
 from ..services import chunker, parsers
 from ..services.vector_store import VectorStore
 
@@ -75,7 +76,7 @@ def _process_document(doc_id: int, upload_path: Path) -> None:
         # 幂等：先清理该文档的旧向量再写入（防止重复处理残留）
         store = VectorStore()
         store.delete_document(doc.id)
-        n = store.add_chunks(doc.id, doc.original_name, chunks)
+        n = store.add_chunks(doc.id, doc.original_name, chunks, subject=doc.subject)
         doc.status = "ready"
         doc.chunk_count = n
         doc.page_count = parsed.page_count
@@ -96,6 +97,7 @@ def _process_document(doc_id: int, upload_path: Path) -> None:
 async def upload_document(
     file: UploadFile,
     background: BackgroundTasks,
+    subject: str = Form(""),
     db: Session = Depends(get_db),
 ):
     name = file.filename or "unnamed"
@@ -135,6 +137,7 @@ async def upload_document(
         stored_name=stored_name,
         file_type=ext,
         size_bytes=size,
+        subject=subject.strip()[:64],
         status="pending",
     )
     try:
@@ -153,6 +156,35 @@ async def upload_document(
 @router.get("", response_model=list[DocumentOut])
 def list_documents(db: Session = Depends(get_db)):
     return db.query(Document).order_by(Document.created_at.desc()).all()
+
+
+@router.get("/subjects", response_model=list[SubjectCount])
+def list_subjects(db: Session = Depends(get_db)):
+    """学科列表（含各学科文档数）。"""
+    rows = (
+        db.query(Document.subject, func.count(Document.id))
+        .group_by(Document.subject)
+        .all()
+    )
+    return [{"subject": s or "未分类", "count": c} for s, c in rows if c > 0]
+
+
+@router.patch("/{doc_id}", response_model=DocumentOut)
+def update_document(doc_id: int, req: SubjectUpdate, db: Session = Depends(get_db)):
+    """修改资料的学科分类（同步更新向量元数据）。"""
+    doc = db.get(Document, doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="资料不存在")
+    subject = req.subject.strip()[:64]
+    doc.subject = subject
+    if doc.status == "ready":
+        try:
+            VectorStore().update_document_subject(doc.id, subject)
+        except Exception:  # noqa: BLE001 - 向量元数据更新失败不影响资料保存
+            pass
+    db.commit()
+    db.refresh(doc)
+    return doc
 
 
 @router.get("/{doc_id}", response_model=DocumentDetail)

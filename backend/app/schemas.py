@@ -23,6 +23,7 @@ class DocumentOut(BaseModel):
     original_name: str
     file_type: str
     size_bytes: int
+    subject: str = ""
     status: str
     error: str
     chunk_count: int
@@ -31,6 +32,15 @@ class DocumentOut(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class SubjectUpdate(BaseModel):
+    subject: str = ""
+
+
+class SubjectCount(BaseModel):
+    subject: str
+    count: int
 
 
 class DocumentDetail(DocumentOut):
@@ -72,6 +82,7 @@ class ConversationOut(BaseModel):
 class ChatRequest(BaseModel):
     conversation_id: Optional[int] = None
     message: str = Field(min_length=1, max_length=8000)
+    subject: str = ""  # 学科范围过滤，空=全部
 
 
 class ChatResponse(BaseModel):

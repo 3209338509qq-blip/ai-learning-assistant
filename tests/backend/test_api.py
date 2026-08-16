@@ -265,6 +265,46 @@ def test_document_content_not_ready(client):
     assert resp.status_code == 404
 
 
+def test_document_subject_flow(client, app_env):
+    """学科：上传带 subject → 列表含 subject → PATCH 修改 → subjects 统计。"""
+    # 上传带学科
+    resp = client.post(
+        "/api/documents/upload",
+        files={"file": ("math.md", "微积分基础内容。".encode(), "text/markdown")},
+        data={"subject": "数学"},
+    )
+    assert resp.status_code == 200, resp.text
+    doc = _wait_ready(client, resp.json()["id"])
+    assert doc["subject"] == "数学"
+
+    # 列表包含 subject
+    lst = client.get("/api/documents").json()
+    assert any(d["id"] == doc["id"] and d["subject"] == "数学" for d in lst)
+
+    # 修改学科
+    upd = client.patch(f"/api/documents/{doc['id']}", json={"subject": "高数"})
+    assert upd.status_code == 200
+    assert upd.json()["subject"] == "高数"
+
+    # subjects 统计
+    subs = client.get("/api/documents/subjects").json()
+    assert any(s["subject"] == "高数" and s["count"] == 1 for s in subs)
+
+    # 按学科检索过滤（向量元数据同步更新）
+    app_env["set_reply"]("高数回答")
+    resp = client.post(
+        "/api/chat/stream",
+        json={"message": "微积分是什么？", "subject": "高数"},
+    )
+    assert resp.status_code == 200
+    # 未匹配学科时不报错（空结果）
+    resp2 = client.post(
+        "/api/chat/stream",
+        json={"message": "微积分是什么？", "subject": "不存在的学科"},
+    )
+    assert resp2.status_code == 200
+
+
 def test_settings_endpoint(client):
     data = client.get("/api/settings").json()
     assert data["ai_provider"] == "fake"

@@ -36,10 +36,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   // ---- 资料 ----
-  uploadDocument(file: File): Promise<DocumentItem> {
+  uploadDocument(file: File, subject = ""): Promise<DocumentItem> {
     const form = new FormData();
     form.append("file", file);
+    if (subject) form.append("subject", subject);
     return request("/api/documents/upload", { method: "POST", body: form });
+  },
+  updateDocumentSubject(id: number, subject: string): Promise<DocumentItem> {
+    return request(`/api/documents/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ subject }),
+    });
+  },
+  listSubjects(): Promise<import("./types").SubjectCount[]> {
+    return request("/api/documents/subjects");
   },
   listDocuments(): Promise<DocumentItem[]> {
     return request("/api/documents");
@@ -159,12 +169,13 @@ export interface StreamHandlers {
 export async function streamChat(
   message: string,
   conversationId: number | null,
+  subject: string,
   handlers: StreamHandlers
 ): Promise<void> {
   const resp = await fetch(`${API_BASE}/api/chat/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, conversation_id: conversationId }),
+    body: JSON.stringify({ message, conversation_id: conversationId, subject }),
   });
   if (!resp.ok) {
     let detail = `HTTP ${resp.status}`;

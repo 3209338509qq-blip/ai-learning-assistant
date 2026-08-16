@@ -40,7 +40,13 @@ class VectorStore:
             self._provider = get_provider()
         return self._provider
 
-    def add_chunks(self, document_id: int, document_name: str, chunks: list[Chunk]) -> int:
+    def add_chunks(
+        self,
+        document_id: int,
+        document_name: str,
+        chunks: list[Chunk],
+        subject: str = "",
+    ) -> int:
         """写入分块并向量化，返回写入块数。"""
         if not chunks:
             return 0
@@ -57,6 +63,7 @@ class VectorStore:
                     "chapter": c.chapter,
                     "page": c.page,
                     "chunk_index": c.index,
+                    "subject": subject,
                 }
                 for c in chunks
             ],
@@ -68,11 +75,17 @@ class VectorStore:
         query: str,
         top_k: int | None = None,
         document_id: int | None = None,
+        subject: str = "",
     ) -> list[dict]:
         """相似检索，返回 [{document_id, document_name, chapter, page, text, distance}]。"""
         top_k = top_k or settings.retrieval_top_k
         q = self.provider.embed_one(query)
-        where = {"document_id": document_id} if document_id is not None else None
+        conds: list[dict] = []
+        if document_id is not None:
+            conds.append({"document_id": document_id})
+        if subject:
+            conds.append({"subject": subject})
+        where = {"$and": conds} if len(conds) > 1 else (conds[0] if conds else None)
         res = self._col.query(
             query_embeddings=[q],
             n_results=top_k,
@@ -101,6 +114,16 @@ class VectorStore:
     def delete_document(self, document_id: int) -> None:
         """删除某文档的全部向量。"""
         self._col.delete(where={"document_id": document_id})
+
+    def update_document_subject(self, document_id: int, subject: str) -> None:
+        """更新某文档全部向量的 subject 元数据。"""
+        res = self._col.get(where={"document_id": document_id})
+        ids = res.get("ids") or []
+        if ids:
+            self._col.update(
+                ids=ids,
+                metadatas=[{"subject": subject}] * len(ids),
+            )
 
     def get_document_chunks(self, document_id: int) -> list[dict]:
         """取某文档的全部分块（按 chunk_index 排序），用于总结/出题，避免重复解析原文件。"""

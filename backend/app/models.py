@@ -22,6 +22,7 @@ class Document(Base):
     stored_name = Column(String(512), nullable=False)
     file_type = Column(String(16), nullable=False)  # pdf/docx/md/txt
     size_bytes = Column(Integer, default=0)
+    subject = Column(String(64), default="")  # 学科分类，空=未分类
     status = Column(String(16), default="pending")  # pending/processing/ready/failed
     error = Column(Text, default="")
     chunk_count = Column(Integer, default=0)

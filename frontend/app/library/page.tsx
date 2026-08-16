@@ -15,6 +15,8 @@ export default function LibraryPage() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const [uploadSubject, setUploadSubject] = useState("");
+  const [subjectFilter, setSubjectFilter] = useState("");
   const [expanded, setExpanded] = useState<number | null>(null);
   const [chaptersMap, setChaptersMap] = useState<Record<number, DocumentItem["chapters"]>>({});
   const [previewId, setPreviewId] = useState<number | null>(null);
@@ -55,7 +57,7 @@ export default function LibraryPage() {
     setError("");
     try {
       for (const file of Array.from(files)) {
-        await api.uploadDocument(file);
+        await api.uploadDocument(file, uploadSubject.trim());
       }
       await refresh();
     } catch (e) {
@@ -63,6 +65,17 @@ export default function LibraryPage() {
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function changeSubject(id: number, current: string) {
+    const next = prompt("设置学科分类（留空清除）", current || "");
+    if (next === null) return;
+    try {
+      await api.updateDocumentSubject(id, next.trim());
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "修改失败");
     }
   }
 
@@ -122,9 +135,46 @@ export default function LibraryPage() {
           {uploading ? "正在上传…" : "拖拽文件到这里，或点击选择文件"}
         </p>
         <p className="mt-1 text-xs text-zinc-400">支持 PDF、DOCX、Markdown、TXT，可多选</p>
+        <input
+          type="text"
+          value={uploadSubject}
+          onChange={(e) => setUploadSubject(e.target.value)}
+          placeholder="学科分类（可选，如：编程 / 数学 / 英语）"
+          className="mt-3 w-full max-w-xs rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-700 focus:border-indigo-500 focus:outline-none"
+          onClick={(e) => e.stopPropagation()}
+        />
       </div>
 
       <ErrorNote message={error} />
+
+      {/* 学科筛选 */}
+      {!loading && docs.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          <button
+            onClick={() => setSubjectFilter("")}
+            className={`rounded-full border px-3 py-1 text-xs ${
+              subjectFilter === ""
+                ? "border-indigo-600 bg-indigo-600 text-white"
+                : "border-zinc-300 bg-white text-zinc-600"
+            }`}
+          >
+            全部
+          </button>
+          {Array.from(new Set(docs.map((d) => d.subject || "未分类"))).map((s) => (
+            <button
+              key={s}
+              onClick={() => setSubjectFilter(s)}
+              className={`rounded-full border px-3 py-1 text-xs ${
+                subjectFilter === s
+                  ? "border-indigo-600 bg-indigo-600 text-white"
+                  : "border-zinc-300 bg-white text-zinc-600"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="mt-5 space-y-3">
         {loading ? (
@@ -132,7 +182,9 @@ export default function LibraryPage() {
         ) : docs.length === 0 ? (
           <EmptyState title="还没有资料" desc="上传第一份学习资料，开始建立你的知识库" />
         ) : (
-          docs.map((doc) => (
+          docs
+            .filter((d) => (subjectFilter === "" ? true : (d.subject || "未分类") === subjectFilter))
+            .map((doc) => (
             <Card key={doc.id} className="p-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-lg">
@@ -141,6 +193,15 @@ export default function LibraryPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate text-sm font-medium text-zinc-900">{doc.original_name}</span>
+                    {doc.subject && (
+                      <button
+                        onClick={() => changeSubject(doc.id, doc.subject)}
+                        className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] text-indigo-600 hover:bg-indigo-100"
+                        title="点击修改学科"
+                      >
+                        {doc.subject}
+                      </button>
+                    )}
                     <StatusBadge status={doc.status} />
                   </div>
                   <div className="mt-0.5 text-xs text-zinc-400">
@@ -158,6 +219,9 @@ export default function LibraryPage() {
                     disabled={doc.status !== "ready"}
                   >
                     预览
+                  </Button>
+                  <Button variant="secondary" className="px-2.5 py-1.5" onClick={() => changeSubject(doc.id, doc.subject)}>
+                    {doc.subject ? "改分类" : "分类"}
                   </Button>
                   <Button variant="secondary" className="px-2.5 py-1.5" onClick={() => toggleChapters(doc.id)}>
                     {expanded === doc.id ? "收起" : "章节"}
