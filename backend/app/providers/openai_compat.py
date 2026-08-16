@@ -55,8 +55,15 @@ class OpenAICompatibleProvider(AIProvider):
                 f"调用对话模型失败 HTTP {resp.status_code}: {resp.text[:300]}"
             )
         try:
-            return resp.json()["choices"][0]["message"]["content"].strip()
-        except (KeyError, IndexError, TypeError) as e:
+            content = resp.json()["choices"][0]["message"]["content"]
+            # 兼容部分服务返回 content parts（list 类型）
+            if isinstance(content, list):
+                content = "".join(
+                    str(p.get("text", "")) if isinstance(p, dict) else str(p)
+                    for p in content
+                )
+            return str(content).strip()
+        except (KeyError, IndexError, TypeError, AttributeError) as e:
             raise RuntimeError(f"对话模型返回格式异常: {resp.text[:300]}") from e
 
     # ---------- Embedding ----------

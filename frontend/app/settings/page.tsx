@@ -25,6 +25,7 @@ export default function SettingsPage() {
   }, []);
 
   const aiReady = settings?.chat_configured && settings?.embedding_configured;
+  const loading = settings === null;
 
   return (
     <div>
@@ -35,14 +36,14 @@ export default function SettingsPage() {
       <Card className="mb-5">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-zinc-900">AI 服务</h2>
-          <Badge tone={aiReady ? "green" : "amber"}>{aiReady ? "已配置" : "未配置"}</Badge>
+          {!loading && <Badge tone={aiReady ? "green" : "amber"}>{aiReady ? "已配置" : "未配置"}</Badge>}
         </div>
         <div className="divide-y divide-zinc-100">
           <Row label="Provider" value={settings?.ai_provider ?? "-"} />
           <Row label="对话模型" value={settings?.chat_model ?? "-"} tone={settings?.chat_configured ? "ok" : "warn"} />
           <Row label="Embedding 模型" value={settings?.embedding_model ?? "-"} tone={settings?.embedding_configured ? "ok" : "warn"} />
         </div>
-        {!aiReady && (
+        {!loading && !aiReady && (
           <div className="mt-3 rounded-lg bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-700">
             <p className="font-medium">配置方法：</p>
             <p className="mt-1">

@@ -15,6 +15,7 @@ export default function LibraryPage() {
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [chaptersMap, setChaptersMap] = useState<Record<number, DocumentItem["chapters"]>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -47,7 +48,7 @@ export default function LibraryPage() {
   }, [hasPending, refresh]);
 
   async function handleFiles(files: FileList | null) {
-    if (!files || files.length === 0) return;
+    if (!files || files.length === 0 || uploading) return;
     setUploading(true);
     setError("");
     try {
@@ -60,6 +61,19 @@ export default function LibraryPage() {
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function toggleChapters(id: number) {
+    const next = expanded === id ? null : id;
+    setExpanded(next);
+    if (next !== null && !chaptersMap[id]) {
+      try {
+        const detail = await api.getDocument(id);
+        setChaptersMap((prev) => ({ ...prev, [id]: detail.chapters }));
+      } catch {
+        setChaptersMap((prev) => ({ ...prev, [id]: [] }));
+      }
     }
   }
 
@@ -135,7 +149,7 @@ export default function LibraryPage() {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
-                  <Button variant="secondary" className="px-2.5 py-1.5" onClick={() => setExpanded(expanded === doc.id ? null : doc.id)}>
+                  <Button variant="secondary" className="px-2.5 py-1.5" onClick={() => toggleChapters(doc.id)}>
                     {expanded === doc.id ? "收起" : "章节"}
                   </Button>
                   <Button variant="danger" className="px-2.5 py-1.5" onClick={() => handleDelete(doc.id)}>
@@ -149,11 +163,11 @@ export default function LibraryPage() {
               {expanded === doc.id && (
                 <div className="mt-3 border-t border-zinc-100 pt-3">
                   <p className="mb-2 text-xs font-medium text-zinc-500">章节结构</p>
-                  {(doc.chapters ?? []).length === 0 ? (
+                  {(chaptersMap[doc.id] ?? doc.chapters ?? []).length === 0 ? (
                     <p className="text-xs text-zinc-400">未识别到章节（按全文处理）</p>
                   ) : (
                     <ul className="space-y-1">
-                      {(doc.chapters ?? []).map((c) => (
+                      {(chaptersMap[doc.id] ?? doc.chapters ?? []).map((c) => (
                         <li key={c.id} className="flex items-center gap-2 text-xs text-zinc-600">
                           <span style={{ marginLeft: (c.level - 1) * 12 }}>▸</span>
                           <span className="truncate">{c.path}</span>

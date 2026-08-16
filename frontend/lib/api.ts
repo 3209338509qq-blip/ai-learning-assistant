@@ -15,9 +15,11 @@ import type {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const isFormData = init?.body instanceof FormData;
   const resp = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
+    // FormData 由浏览器自动生成 multipart boundary，不能手动指定 Content-Type
     ...init,
+    headers: isFormData ? undefined : { "Content-Type": "application/json" },
   });
   if (!resp.ok) {
     let detail = `HTTP ${resp.status}`;
@@ -120,7 +122,10 @@ export const api = {
   deleteWrongQuestion(id: number): Promise<{ ok: boolean }> {
     return request(`/api/wrong-questions/${id}`, { method: "DELETE" });
   },
-  redoWrongQuestion(id: number, isCorrect: boolean): Promise<WrongQuestion | null> {
+  redoWrongQuestion(
+    id: number,
+    isCorrect: boolean
+  ): Promise<{ deleted?: boolean } | WrongQuestion> {
     return request(`/api/wrong-questions/${id}/redo`, {
       method: "POST",
       body: JSON.stringify({ is_correct: isCorrect }),

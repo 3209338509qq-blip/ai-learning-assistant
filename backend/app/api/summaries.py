@@ -8,9 +8,6 @@ from ..database import get_db
 from ..models import Document, Summary
 from ..schemas import SummaryOut, SummaryRequest
 from ..services.ai_service import AIService
-from ..services.parsers import parse_document
-from ..config import settings
-from pathlib import Path
 
 router = APIRouter(prefix="/api/summaries", tags=["summaries"])
 
@@ -23,10 +20,11 @@ def generate_summary(req: SummaryRequest, db: Session = Depends(get_db)):
     if doc.status != "ready":
         raise HTTPException(status_code=400, detail=f"资料未处理完成（当前状态: {doc.status}）")
 
-    upload_path = Path(settings.upload_dir) / doc.stored_name
-    parsed = parse_document(str(upload_path), doc.file_type)
     service = AIService()
-    data = service.generate_summary(parsed, doc.original_name, req.chapter_path)
+    try:
+        data = service.generate_summary_for_document(doc.id, doc.original_name, req.chapter_path)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     title = req.chapter_path or "全文"
     summary = Summary(

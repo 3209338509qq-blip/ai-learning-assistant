@@ -298,6 +298,7 @@ function QuestionBlock({
             <p className="mt-1 text-xs text-amber-600">对照参考答案，自评你的作答：</p>
             <div className="mt-1.5 flex gap-2">
               <button
+                disabled={!answer?.user_answer?.trim()}
                 onClick={() => onChange(q.id, answer?.user_answer ?? "", true)}
                 className={`rounded-full px-3.5 py-1 text-xs font-medium transition-colors ${
                   answer?.self_evaluated === true
@@ -308,6 +309,7 @@ function QuestionBlock({
                 答对了
               </button>
               <button
+                disabled={!answer?.user_answer?.trim()}
                 onClick={() => onChange(q.id, answer?.user_answer ?? "", false)}
                 className={`rounded-full px-3.5 py-1 text-xs font-medium transition-colors ${
                   answer?.self_evaluated === false

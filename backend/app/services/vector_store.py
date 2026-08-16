@@ -11,13 +11,22 @@ from .chunker import Chunk
 
 COLLECTION_NAME = "learning_docs"
 
+# 按路径缓存 Chroma 客户端（避免每次请求重复初始化）
+_client_cache: dict[str, chromadb.ClientAPI] = {}
+
+
+def _get_client(path: str) -> chromadb.ClientAPI:
+    if path not in _client_cache:
+        Path(path).mkdir(parents=True, exist_ok=True)
+        _client_cache[path] = chromadb.PersistentClient(path=path)
+    return _client_cache[path]
+
 
 class VectorStore:
     def __init__(self, path: str | None = None, provider: AIProvider | None = None):
         self._provider = provider
         self._path = path or settings.chroma_path
-        Path(self._path).mkdir(parents=True, exist_ok=True)
-        self._client = chromadb.PersistentClient(path=self._path)
+        self._client = _get_client(self._path)
         self._col = self._client.get_or_create_collection(
             name=COLLECTION_NAME,
             metadata={"hnsw:space": "cosine"},
@@ -92,6 +101,25 @@ class VectorStore:
     def delete_document(self, document_id: int) -> None:
         """删除某文档的全部向量。"""
         self._col.delete(where={"document_id": document_id})
+
+    def get_document_chunks(self, document_id: int) -> list[dict]:
+        """取某文档的全部分块（按 chunk_index 排序），用于总结/出题，避免重复解析原文件。"""
+        res = self._col.get(
+            where={"document_id": document_id},
+            include=["documents", "metadatas"],
+        )
+        out = []
+        for doc, meta in zip(res.get("documents") or [], res.get("metadatas") or []):
+            out.append(
+                {
+                    "text": doc,
+                    "chapter": meta.get("chapter", ""),
+                    "chunk_index": meta.get("chunk_index", 0),
+                    "page": meta.get("page", 0),
+                }
+            )
+        out.sort(key=lambda c: c["chunk_index"])
+        return out
 
     def count(self) -> int:
         return self._col.count()

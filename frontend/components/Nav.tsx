@@ -61,10 +61,10 @@ export default function Nav() {
           <span className="text-sm font-semibold text-zinc-900">AI 学习助手</span>
         </Link>
         <div className="flex items-center gap-1">
-          <Link href="/wrong-questions" className={`rounded-lg p-2 ${pathname === "/wrong-questions" ? "bg-indigo-50 text-indigo-700" : "text-zinc-500"}`}>
+          <Link href="/wrong-questions" aria-label="错题本" title="错题本" className={`rounded-lg p-2 ${pathname === "/wrong-questions" ? "bg-indigo-50 text-indigo-700" : "text-zinc-500"}`}>
             <Icon d={ITEMS[5].icon} />
           </Link>
-          <Link href="/settings" className={`rounded-lg p-2 ${pathname === "/settings" ? "bg-indigo-50 text-indigo-700" : "text-zinc-500"}`}>
+          <Link href="/settings" aria-label="设置" title="设置" className={`rounded-lg p-2 ${pathname === "/settings" ? "bg-indigo-50 text-indigo-700" : "text-zinc-500"}`}>
             <Icon d={ITEMS[6].icon} />
           </Link>
         </div>

@@ -6,6 +6,7 @@ export function formatBytes(bytes: number): string {
 
 export function formatTime(iso: string): string {
   const d = new Date(iso);
+  if (!isFinite(d.getTime())) return "-";
   const now = Date.now();
   const diff = now - d.getTime();
   if (diff < 60_000) return "刚刚";

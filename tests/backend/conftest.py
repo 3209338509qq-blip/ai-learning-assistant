@@ -42,6 +42,11 @@ def app_env(tmp_path, monkeypatch):
 
     monkeypatch.setattr(providers, "get_provider", lambda: provider)
 
+    # 后台任务模块的 SessionLocal 是模块级绑定，需一并替换
+    import app.api.documents as documents_module
+
+    monkeypatch.setattr(documents_module, "SessionLocal", database.SessionLocal)
+
     def set_reply(text: str):
         provider._reply_fn = lambda messages: text
 

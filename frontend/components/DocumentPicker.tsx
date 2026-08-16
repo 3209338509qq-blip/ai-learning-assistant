@@ -30,6 +30,13 @@ export default function DocumentPicker({
 
   const doc = docs.find((d) => d.id === value.documentId);
 
+  // 已选文档被删除/失效时清空选择，避免提交过期 id
+  useEffect(() => {
+    if (value.documentId !== null && !doc && !docs.some((x) => x.id === value.documentId)) {
+      onChange({ documentId: null, chapterPath: "" });
+    }
+  }, [docs, value.documentId, doc, onChange]);
+
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div>

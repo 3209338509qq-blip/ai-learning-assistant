@@ -28,15 +28,18 @@ class Settings(BaseSettings):
     embedding_dimensions: int = 1024
     embedding_batch_size: int = 16
 
-    # ---------- 存储 ----------
-    database_path: str = "backend/data/app.db"
-    chroma_path: str = "backend/data/chroma"
-    upload_dir: str = "backend/data/uploads"
+    # ---------- 存储（默认锚定 backend/data，与启动目录无关）----------
+    database_path: str = str(BASE_DIR / "data" / "app.db")
+    chroma_path: str = str(BASE_DIR / "data" / "chroma")
+    upload_dir: str = str(BASE_DIR / "data" / "uploads")
 
     # ---------- 分块与检索 ----------
     chunk_size: int = 800
     chunk_overlap: int = 100
     retrieval_top_k: int = 6
+
+    # ---------- 上传限制 ----------
+    max_upload_mb: int = 50
 
 
 @lru_cache

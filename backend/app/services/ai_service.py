@@ -130,6 +130,71 @@ class AIService:
         )
         return self._parse_quiz(raw, chapter_path)
 
+    # ---------------- 基于向量库的总结/出题（无需重新解析原文件）----------------
+
+    def generate_summary_for_document(
+        self,
+        document_id: int,
+        filename: str,
+        chapter_path: str = "",
+    ) -> dict[str, str]:
+        text, scope = self._scope_from_store(document_id, chapter_path)
+        prompt = (
+            f"请为以下学习资料生成结构化总结。\n"
+            f"资料：{filename}，范围：{scope}\n\n"
+            f"资料内容：\n{text[:12000]}\n\n"
+            "严格输出 JSON 对象，字段如下：\n"
+            '{"core_points": "核心知识点（分条列出）", "key_concepts": "重点概念（含解释）", '
+            '"pitfalls": "易错点", "memory_items": "需要记忆的内容", "short_summary": "简短总结（100字内）"}'
+        )
+        raw = self.provider.chat(
+            [ChatMessage("system", SYSTEM_PROMPT), ChatMessage("user", prompt)],
+            temperature=0.3,
+        )
+        return self._parse_json_dict(
+            raw,
+            fallback_keys=["core_points", "key_concepts", "pitfalls", "memory_items", "short_summary"],
+        )
+
+    def generate_quiz_for_document(
+        self,
+        document_id: int,
+        filename: str,
+        chapter_path: str = "",
+        count: int = 5,
+        types: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        types = types or ["choice", "true_false", "short_answer"]
+        text, scope = self._scope_from_store(document_id, chapter_path)
+        prompt = (
+            f"请根据以下学习资料出练习题。\n"
+            f"资料：{filename}，范围：{scope}\n\n"
+            f"资料内容：\n{text[:12000]}\n\n"
+            f"要求：共 {count} 道题，题型分配尽量均匀（可选题型：choice 选择题 / true_false 判断题 / short_answer 简答题）。\n"
+            "每道题包含：question 题干、options 选项数组（仅选择题，选项形如 'A. xxx'）、"
+            "answer 答案（选择题填选项字母；判断题填 '正确'/'错误'；简答题填完整答案）、"
+            "explanation 解析、difficulty（easy/medium/hard）、knowledge_point 对应知识点。\n"
+            "严格输出 JSON 数组，不要输出其他内容。"
+        )
+        raw = self.provider.chat(
+            [ChatMessage("system", SYSTEM_PROMPT), ChatMessage("user", prompt)],
+            temperature=0.5,
+        )
+        return self._parse_quiz(raw, chapter_path)
+
+    def _scope_from_store(self, document_id: int, chapter_path: str) -> tuple[str, str]:
+        """从向量库取文档分块拼接文本（章节可过滤）。章节不存在时报错而非静默回退全文。"""
+        chunks = self.store.get_document_chunks(document_id)
+        if chapter_path:
+            filtered = [c for c in chunks if c["chapter"] == chapter_path]
+            if not filtered:
+                raise ValueError(f"章节不存在: {chapter_path}")
+            chunks = filtered
+        text = "\n".join(c["text"] for c in chunks)
+        if not text.strip():
+            raise ValueError("该范围没有可用的文本内容")
+        return text[:12000], chapter_path or "全文"
+
     # ---------------- 内部工具 ----------------
 
     def _scope_text(self, doc: ParsedDocument, chapter_path: str) -> tuple[str, str]:

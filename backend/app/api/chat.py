@@ -36,27 +36,39 @@ def chat(req: ChatRequest, db: Session = Depends(get_db)):
         if conv is None:
             raise HTTPException(status_code=404, detail="会话不存在")
 
-    history = []
-    if conv is not None:
-        for m in conv.messages[-10:]:
-            history.append({"role": m.role, "content": m.content})
-
-    answer, sources, has_evidence = service.chat_with_rag(req.message, history)
-
+    # 先持久化用户消息：即使 AI 调用失败，用户输入也不丢失
     if conv is None:
         title = req.message.strip()[:30]
         conv = Conversation(title=title)
         db.add(conv)
         db.flush()
-
     user_msg = Message(conversation_id=conv.id, role="user", content=req.message)
+    db.add(user_msg)
+    conv.updated_at = utcnow()
+    db.commit()
+
+    history = []
+    if conv is not None:
+        recent = (
+            db.query(Message)
+            .filter(Message.conversation_id == conv.id)
+            .order_by(Message.id.desc())
+            .limit(10)
+            .all()
+        )
+        history = [{"role": m.role, "content": m.content} for m in reversed(recent)]
+
+    try:
+        answer, sources, has_evidence = service.chat_with_rag(req.message, history)
+    except Exception as e:  # noqa: BLE001 - AI 故障返回 502，消息已保存
+        raise HTTPException(status_code=502, detail=f"AI 服务调用失败: {str(e)[:300]}") from e
+
     ai_msg = Message(
         conversation_id=conv.id,
         role="assistant",
         content=answer,
         sources=json.dumps(sources, ensure_ascii=False),
     )
-    db.add(user_msg)
     db.add(ai_msg)
     conv.updated_at = utcnow()
     db.commit()

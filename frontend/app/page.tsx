@@ -58,7 +58,7 @@ export default function HomePage() {
               上传资料 →
             </Link>
           )}
-          {!aiReady && (
+          {settings !== null && !aiReady && (
             <span className="rounded-lg bg-white/15 px-4 py-2 text-sm text-indigo-100">
               ⚠️ 尚未配置 AI 服务，前往设置页查看
             </span>

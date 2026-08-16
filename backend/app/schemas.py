@@ -117,6 +117,15 @@ class QuizRequest(BaseModel):
     count: int = Field(default=5, ge=1, le=30)
     types: list[str] = Field(default=["choice", "true_false", "short_answer"])
 
+    @field_validator("types")
+    @classmethod
+    def validate_types(cls, v):
+        allowed = {"choice", "true_false", "short_answer"}
+        for t in v:
+            if t not in allowed:
+                raise ValueError(f"不支持的题型: {t}")
+        return v or list(allowed)
+
 
 class QuestionOut(BaseModel):
     id: int

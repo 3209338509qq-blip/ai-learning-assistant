@@ -53,6 +53,7 @@ export default function ChatPage() {
   }, [messages, sending]);
 
   async function openConversation(id: number) {
+    if (sending) return;
     setCurrentId(id);
     setError("");
     try {
@@ -70,6 +71,7 @@ export default function ChatPage() {
   }
 
   async function newConversation() {
+    if (sending) return;
     setCurrentId(null);
     setMessages([]);
     setError("");
@@ -78,12 +80,18 @@ export default function ChatPage() {
   async function send() {
     const text = input.trim();
     if (!text || sending) return;
+    const targetConvId = currentId; // 记录目标会话，防止竞态
     setInput("");
     setError("");
     setMessages((prev) => [...prev, { role: "user", content: text, sources: [] }]);
     setSending(true);
     try {
-      const resp = await api.chat(text, currentId ?? undefined);
+      const resp = await api.chat(text, targetConvId ?? undefined);
+      // 若在途期间用户切换了会话，只刷新列表，不污染当前视图
+      if (targetConvId !== currentId) {
+        api.listConversations().then(setConversations).catch(() => undefined);
+        return;
+      }
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: resp.answer, sources: resp.sources },
@@ -99,23 +107,51 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-9rem)] flex-col lg:h-[calc(100dvh-4rem)]">
+    <div className="flex h-[calc(100dvh-12.5rem)] flex-col lg:h-[calc(100dvh-4rem)]">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900">AI 对话</h1>
           <p className="mt-1 text-sm text-zinc-500">优先基于你的学习资料回答，引用会标注来源</p>
         </div>
-        <Button variant="secondary" onClick={newConversation}>新对话</Button>
+        <Button variant="secondary" onClick={newConversation} disabled={sending}>新对话</Button>
       </div>
 
+      {/* 会话列表（移动端横向滚动） */}
+      {conversations.length > 0 && (
+        <div className="mb-3 flex gap-2 overflow-x-auto pb-1 md:hidden">
+          <button
+            onClick={newConversation}
+            disabled={sending}
+            className={`shrink-0 rounded-full border px-3 py-1.5 text-xs ${
+              currentId === null ? "border-indigo-600 bg-indigo-600 text-white" : "border-zinc-300 text-zinc-600"
+            }`}
+          >
+            + 新对话
+          </button>
+          {conversations.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => openConversation(c.id)}
+              disabled={sending}
+              className={`max-w-40 shrink-0 truncate rounded-full border px-3 py-1.5 text-xs ${
+                currentId === c.id ? "border-indigo-600 bg-indigo-600 text-white" : "border-zinc-300 bg-white text-zinc-600"
+              }`}
+            >
+              {c.title}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex min-h-0 flex-1 gap-4">
-        {/* 会话列表（桌面） */}
+        {/* 会话列表（桌面侧栏） */}
         {conversations.length > 0 && (
           <aside className="hidden w-48 shrink-0 flex-col space-y-1 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-2 md:flex">
             {conversations.map((c) => (
               <button
                 key={c.id}
                 onClick={() => openConversation(c.id)}
+                disabled={sending}
                 className={`truncate rounded-lg px-3 py-2 text-left text-sm ${
                   currentId === c.id ? "bg-indigo-50 font-medium text-indigo-700" : "text-zinc-600 hover:bg-zinc-100"
                 }`}
@@ -176,7 +212,8 @@ export default function ChatPage() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
+                  // isComposing: 中文输入法选词回车不发送
+                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                     e.preventDefault();
                     send();
                   }

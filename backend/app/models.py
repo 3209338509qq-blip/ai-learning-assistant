@@ -33,6 +33,8 @@ class Document(Base):
         "Chapter", back_populates="document", cascade="all, delete-orphan",
         order_by="Chapter.order_index",
     )
+    summaries = relationship("Summary", back_populates="document", cascade="all, delete-orphan")
+    quiz_sets = relationship("QuizSet", back_populates="document", cascade="all, delete-orphan")
 
 
 class Chapter(Base):
@@ -82,6 +84,7 @@ class Summary(Base):
 
     id = Column(Integer, primary_key=True)
     document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    document = relationship("Document", back_populates="summaries")
     chapter_path = Column(String(1024), default="")  # 空字符串 = 整篇文档
     title = Column(String(512), default="")
     core_points = Column(Text, default="")    # 核心知识点
@@ -97,6 +100,8 @@ class QuizSet(Base):
 
     id = Column(Integer, primary_key=True)
     document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    document = relationship("Document", back_populates="quiz_sets")
+    attempts = relationship("QuizAttempt", back_populates="quiz_set", cascade="all, delete-orphan")
     chapter_path = Column(String(1024), default="")
     title = Column(String(512), default="")
     created_at = Column(DateTime, default=utcnow)
@@ -138,6 +143,7 @@ class QuizAttempt(Base):
     answers = relationship(
         "AnswerRecord", back_populates="attempt", cascade="all, delete-orphan",
     )
+    quiz_set = relationship("QuizSet", back_populates="attempts")
 
 
 class AnswerRecord(Base):

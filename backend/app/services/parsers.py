@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 SUPPORTED_TYPES = {"pdf", "docx", "md", "txt"}
 
@@ -120,43 +121,45 @@ def parse_pdf(path: str) -> ParsedDocument:
     import fitz  # PyMuPDF
 
     pdf = fitz.open(path)
-    builder = SectionBuilder()
-    order = 0
+    try:
+        builder = SectionBuilder()
+        order = 0
 
-    sizes: list[float] = []
-    for page in pdf:
-        for block in page.get_text("dict")["blocks"]:
-            if block.get("type") != 0:
-                continue
-            for line in block["lines"]:
-                for span in line["spans"]:
-                    if span["text"].strip():
-                        sizes.append(span["size"])
-    avg = sum(sizes) / len(sizes) if sizes else 12.0
-
-    for page in pdf:
-        page_no = page.number + 1
-        for block in page.get_text("dict")["blocks"]:
-            if block.get("type") != 0:
-                continue
-            for line in block["lines"]:
-                spans = line["spans"]
-                if not spans:
+        sizes: list[float] = []
+        for page in pdf:
+            for block in page.get_text("dict")["blocks"]:
+                if block.get("type") != 0:
                     continue
-                text = _pdf_line_text(line)
-                if not text:
-                    continue
-                size = max(s["size"] for s in spans)
-                bold = any(s["flags"] & 16 for s in spans)
-                if _looks_like_heading(text, size, avg, bold):
-                    order += 1
-                    builder.add_heading(text, _heading_level(text), page_no, order)
-                else:
-                    builder.add_text(text, page_no)
+                for line in block["lines"]:
+                    for span in line["spans"]:
+                        if span["text"].strip():
+                            sizes.append(span["size"])
+        avg = sum(sizes) / len(sizes) if sizes else 12.0
 
-    page_count = pdf.page_count
-    pdf.close()
-    return ParsedDocument(file_type="pdf", page_count=page_count, sections=builder.build())
+        for page in pdf:
+            page_no = page.number + 1
+            for block in page.get_text("dict")["blocks"]:
+                if block.get("type") != 0:
+                    continue
+                for line in block["lines"]:
+                    spans = line["spans"]
+                    if not spans:
+                        continue
+                    text = _pdf_line_text(line)
+                    if not text:
+                        continue
+                    size = max(s["size"] for s in spans)
+                    bold = any(s["flags"] & 16 for s in spans)
+                    if _looks_like_heading(text, size, avg, bold):
+                        order += 1
+                        builder.add_heading(text, _heading_level(text), page_no, order)
+                    else:
+                        builder.add_text(text, page_no)
+
+        page_count = pdf.page_count
+        return ParsedDocument(file_type="pdf", page_count=page_count, sections=builder.build())
+    finally:
+        pdf.close()
 
 
 # ---------------- DOCX（python-docx）----------------
@@ -209,16 +212,23 @@ def _split_markdown(text: str, file_type: str, page_count: int) -> ParsedDocumen
     return ParsedDocument(file_type=file_type, page_count=page_count, sections=builder.build())
 
 
+def _read_text_file(path: str) -> str:
+    """读取文本文件：优先 UTF-8，失败按 GBK（中文常见）再尝试。"""
+    raw = Path(path).read_bytes()
+    for enc in ("utf-8", "gbk"):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", errors="replace")
+
+
 def parse_markdown(path: str) -> ParsedDocument:
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
-        text = f.read()
-    return _split_markdown(text, "md", 0)
+    return _split_markdown(_read_text_file(path), "md", 0)
 
 
 def parse_txt(path: str) -> ParsedDocument:
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
-        text = f.read()
-    return _split_markdown(text, "txt", 0)
+    return _split_markdown(_read_text_file(path), "txt", 0)
 
 
 # ---------------- 统一入口 ----------------

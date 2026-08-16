@@ -3,9 +3,25 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api import chat, documents, quizzes, settings as settings_api, summaries, wrong_questions
-from .database import Base, engine
+from .database import Base, SessionLocal, engine
+from .models import Document
 
 Base.metadata.create_all(bind=engine)
+
+
+def _recover_interrupted_documents() -> None:
+    """启动时将上次运行中断的待处理文档标记为失败，避免永久卡在 pending。"""
+    db = SessionLocal()
+    try:
+        for doc in db.query(Document).filter(Document.status == "pending").all():
+            doc.status = "failed"
+            doc.error = "服务重启中断了处理，请重新上传"
+        db.commit()
+    finally:
+        db.close()
+
+
+_recover_interrupted_documents()
 
 app = FastAPI(
     title="AI Learning Assistant API",

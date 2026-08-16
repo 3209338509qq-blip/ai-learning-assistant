@@ -3,12 +3,10 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ..config import settings
 from ..database import get_db
 from ..models import (
     AnswerRecord,
@@ -20,16 +18,21 @@ from ..models import (
 )
 from ..schemas import QuizRequest, QuizResultOut, QuizSetOut, QuizSubmitRequest
 from ..services.ai_service import AIService
-from ..services.parsers import parse_document
 
 router = APIRouter(prefix="/api/quizzes", tags=["quizzes"])
 
 
 def _normalize_answer(v: str) -> str:
+    import re as _re
+
     v = v.strip().upper()
     mapping = {"对": "正确", "√": "正确", "T": "正确", "TRUE": "正确", "错": "错误", "×": "错误", "F": "错误", "FALSE": "错误"}
     if v in mapping:
         return mapping[v]
+    # 选择题：提取选项字母，容忍 "A. xxx" / "A、xxx" / "A xxx" 等格式
+    m = _re.match(r"^([A-Z])(?:[.、。:：\\s]|$)", v)
+    if m:
+        return m.group(1)
     return v
 
 
@@ -41,12 +44,13 @@ def generate_quiz(req: QuizRequest, db: Session = Depends(get_db)):
     if doc.status != "ready":
         raise HTTPException(status_code=400, detail=f"资料未处理完成（当前状态: {doc.status}）")
 
-    upload_path = Path(settings.upload_dir) / doc.stored_name
-    parsed = parse_document(str(upload_path), doc.file_type)
     service = AIService()
-    items = service.generate_quiz(
-        parsed, doc.original_name, req.chapter_path, req.count, req.types
-    )
+    try:
+        items = service.generate_quiz_for_document(
+            doc.id, doc.original_name, req.chapter_path, req.count, req.types
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     if not items:
         raise HTTPException(status_code=502, detail="出题失败：AI 返回内容无法解析，请重试")
 

@@ -36,6 +36,7 @@ export default function WrongQuestionsPage() {
   }, [refresh]);
 
   async function remove(id: number) {
+    if (!confirm("确定删除这道错题吗？")) return;
     try {
       await api.deleteWrongQuestion(id);
       await refresh();
@@ -50,14 +51,19 @@ export default function WrongQuestionsPage() {
     setPracticeFeedback(null);
   }
 
+  const [practicingBusy, setPracticingBusy] = useState(false);
+
   async function finishPractice(isCorrect: boolean) {
-    if (!practicing) return;
+    if (!practicing || practicingBusy) return;
+    setPracticingBusy(true);
     setPracticeFeedback(isCorrect ? "correct" : "wrong");
     try {
       await api.redoWrongQuestion(practicing.id, isCorrect);
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "提交失败");
+    } finally {
+      setPracticingBusy(false);
     }
   }
 
@@ -175,10 +181,10 @@ export default function WrongQuestionsPage() {
                   参考答案：{practicing.correct_answer}
                 </span>
               )}
-              <Button variant="secondary" onClick={() => finishPractice(true)} disabled={!practiceAnswer.trim()}>
+              <Button variant="secondary" onClick={() => finishPractice(true)} disabled={!practiceAnswer.trim() || practicingBusy}>
                 ✓ 答对了
               </Button>
-              <Button variant="danger" onClick={() => finishPractice(false)} disabled={!practiceAnswer.trim()}>
+              <Button variant="danger" onClick={() => finishPractice(false)} disabled={!practiceAnswer.trim() || practicingBusy}>
                 ✗ 答错了
               </Button>
             </div>
