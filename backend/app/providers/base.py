@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 
@@ -27,6 +28,14 @@ class AIProvider(ABC):
         temperature: float = 0.7,
     ) -> str:
         """调用对话模型，返回回复文本。"""
+
+    def stream_chat(
+        self,
+        messages: list[ChatMessage],
+        temperature: float = 0.7,
+    ) -> Iterator[str]:
+        """流式对话：逐段产出文本。默认实现直接返回完整文本（子类可覆盖）。"""
+        yield self.chat(messages, temperature)
 
     @abstractmethod
     def embed(self, texts: list[str]) -> list[list[float]]:

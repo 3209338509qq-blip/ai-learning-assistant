@@ -138,4 +138,63 @@ export const api = {
   },
 };
 
+export interface StreamHandlers {
+  onDelta: (text: string) => void;
+  onDone: (payload: { conversation_id: number; sources: SourceRef[]; has_evidence: boolean }) => void;
+  onError: (message: string) => void;
+}
+
+/** SSE 流式对话：逐段回调文本增量。 */
+export async function streamChat(
+  message: string,
+  conversationId: number | null,
+  handlers: StreamHandlers
+): Promise<void> {
+  const resp = await fetch(`${API_BASE}/api/chat/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, conversation_id: conversationId }),
+  });
+  if (!resp.ok) {
+    let detail = `HTTP ${resp.status}`;
+    try {
+      const body = await resp.json();
+      if (body?.detail) detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
+    } catch {
+      /* 忽略解析失败 */
+    }
+    throw new Error(detail);
+  }
+  if (!resp.body) throw new Error("浏览器不支持流式响应");
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf("\n\n")) !== -1) {
+      const raw = buf.slice(0, idx);
+      buf = buf.slice(idx + 2);
+      for (const line of raw.split("\n")) {
+        if (!line.startsWith("data:")) continue;
+        try {
+          const payload = JSON.parse(line.slice(5).trim());
+          if (payload.type === "delta") handlers.onDelta(payload.content ?? "");
+          else if (payload.type === "done")
+            handlers.onDone({
+              conversation_id: payload.conversation_id,
+              sources: payload.sources ?? [],
+              has_evidence: payload.has_evidence ?? false,
+            });
+          else if (payload.type === "error") handlers.onError(payload.message ?? "生成失败");
+        } catch {
+          /* 忽略坏帧 */
+        }
+      }
+    }
+  }
+}
+
 export type { SourceRef };

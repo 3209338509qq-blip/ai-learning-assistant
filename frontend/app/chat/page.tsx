@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { api } from "../../lib/api";
+import { api, streamChat } from "../../lib/api";
 import { formatTime } from "../../lib/format";
 import type { Conversation, Message, SourceRef } from "../../lib/types";
 import { Button, ErrorNote, Spinner } from "../../components/ui";
@@ -83,22 +83,30 @@ export default function ChatPage() {
     const targetConvId = currentId; // 记录目标会话，防止竞态
     setInput("");
     setError("");
-    setMessages((prev) => [...prev, { role: "user", content: text, sources: [] }]);
+    // 一次追加：用户消息 + 空的助手消息（流式内容累积到它上面）
+    const aiIndex = messages.length + 1;
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: text, sources: [] },
+      { role: "assistant", content: "", sources: [] },
+    ]);
     setSending(true);
     try {
-      const resp = await api.chat(text, targetConvId ?? undefined);
-      // 若在途期间用户切换了会话，只刷新列表，不污染当前视图
-      if (targetConvId !== currentId) {
-        api.listConversations().then(setConversations).catch(() => undefined);
-        return;
-      }
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: resp.answer, sources: resp.sources },
-      ]);
-      setCurrentId(resp.conversation_id);
-      // 刷新会话列表
-      api.listConversations().then(setConversations).catch(() => undefined);
+      await streamChat(text, targetConvId, {
+        onDelta: (delta) => {
+          setMessages((prev) =>
+            prev.map((m, i) => (i === aiIndex ? { ...m, content: m.content + delta } : m))
+          );
+        },
+        onDone: ({ conversation_id, sources }) => {
+          setMessages((prev) =>
+            prev.map((m, i) => (i === aiIndex ? { ...m, sources } : m))
+          );
+          setCurrentId(conversation_id);
+          api.listConversations().then(setConversations).catch(() => undefined);
+        },
+        onError: (msg) => setError(msg),
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "发送失败");
     } finally {
@@ -174,34 +182,40 @@ export default function ChatPage() {
                 </p>
               </div>
             )}
-            {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[85%] space-y-2 ${m.role === "user" ? "" : "w-full"}`}>
-                  <div
-                    className={`whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                      m.role === "user"
-                        ? "rounded-br-md bg-indigo-600 text-white"
-                        : "rounded-bl-md border border-zinc-200 bg-zinc-50 text-zinc-800"
-                    }`}
-                  >
-                    {m.content}
-                  </div>
-                  {m.role === "assistant" && m.sources.length > 0 && (
-                    <div className="space-y-1.5 pl-1">
-                      <p className="text-[11px] text-zinc-400">来源引用（点击展开摘录）</p>
-                      {m.sources.map((s, j) => (
-                        <SourceCard key={j} source={s} />
-                      ))}
+            {messages.map((m, i) => {
+              const isStreaming = sending && i === messages.length - 1 && m.role === "assistant";
+              return (
+                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[85%] space-y-2 ${m.role === "user" ? "" : "w-full"}`}>
+                    <div
+                      className={`whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                        m.role === "user"
+                          ? "rounded-br-md bg-indigo-600 text-white"
+                          : "rounded-bl-md border border-zinc-200 bg-zinc-50 text-zinc-800"
+                      }`}
+                    >
+                      {m.content}
+                      {isStreaming && m.content === "" && (
+                        <span className="inline-flex items-center gap-2 text-zinc-400">
+                          <Spinner className="h-4 w-4" /> 正在思考…
+                        </span>
+                      )}
+                      {isStreaming && m.content !== "" && (
+                        <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-indigo-500 align-middle" />
+                      )}
                     </div>
-                  )}
+                    {m.role === "assistant" && m.sources.length > 0 && (
+                      <div className="space-y-1.5 pl-1">
+                        <p className="text-[11px] text-zinc-400">来源引用（点击展开摘录）</p>
+                        {m.sources.map((s, j) => (
+                          <SourceCard key={j} source={s} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-            {sending && (
-              <div className="flex items-center gap-2 text-sm text-zinc-400">
-                <Spinner /> 正在思考…
-              </div>
-            )}
+              );
+            })}
             <div ref={bottomRef} />
           </div>
 

@@ -5,6 +5,8 @@ DeepSeek、MiMo、OpenAI、硅基流动、Ollama(openai 模式) 等。
 """
 from __future__ import annotations
 
+import json
+
 import httpx
 
 from ..config import settings
@@ -66,6 +68,51 @@ class OpenAICompatibleProvider(AIProvider):
             return str(content).strip()
         except (KeyError, IndexError, TypeError, AttributeError) as e:
             raise RuntimeError(f"对话模型返回格式异常: {resp.text[:300]}") from e
+
+    # ---------- 流式对话 ----------
+
+    def stream_chat(
+        self,
+        messages: list[ChatMessage],
+        temperature: float = 0.7,
+    ):
+        if not self.chat_configured():
+            raise RuntimeError(
+                "对话模型未配置：请设置 AI_API_KEY（或 AI_PROVIDER=fake 体验演示模式）"
+            )
+        payload = {
+            "model": settings.ai_chat_model,
+            "messages": [{"role": m.role, "content": m.content} for m in messages],
+            "temperature": temperature,
+            "stream": True,
+        }
+        url = f"{self._base_url(settings.ai_base_url)}/chat/completions"
+        try:
+            with httpx.stream(
+                "POST",
+                url,
+                json=payload,
+                headers=self._headers(settings.ai_api_key),
+                timeout=httpx.Timeout(settings.ai_timeout_seconds, read=60),
+            ) as resp:
+                if resp.status_code != 200:
+                    raise RuntimeError(
+                        f"调用对话模型失败 HTTP {resp.status_code}: {resp.text[:300]}"
+                    )
+                for line in resp.iter_lines():
+                    if not line or not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        break
+                    try:
+                        delta = json.loads(data)["choices"][0]["delta"].get("content")
+                    except (KeyError, IndexError, TypeError, ValueError):
+                        continue
+                    if delta:
+                        yield delta
+        except httpx.HTTPError as e:
+            raise RuntimeError(f"调用对话模型失败（网络错误）: {e}") from e
 
     # ---------- Embedding ----------
 

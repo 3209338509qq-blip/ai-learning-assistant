@@ -44,6 +44,17 @@ class FakeProvider(AIProvider):
             "配置 .env 中的 AI_API_KEY 后将返回真实 AI 回答。"
         )
 
+    def stream_chat(
+        self,
+        messages: list[ChatMessage],
+        temperature: float = 0.7,
+    ):
+        """模拟流式：按小块产出回复，制造打字机效果。"""
+        text = self.chat(messages, temperature)
+        step = 8
+        for i in range(0, len(text), step):
+            yield text[i : i + step]
+
     # ---------- 演示内容生成 ----------
 
     def _extract_content(self, all_text: str, max_len: int = 3000) -> str:

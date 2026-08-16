@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterator
 from typing import Any
 
 from ..config import settings
@@ -75,6 +76,43 @@ class AIService:
                 }
             )
         return answer, source_out, has_evidence
+
+    # ---------------- 流式 RAG 问答 ----------------
+
+    def stream_chat_with_rag(
+        self,
+        query: str,
+        history: list[dict] | None = None,
+        document_id: int | None = None,
+    ) -> tuple[Iterator[str], list[dict], bool]:
+        """流式 RAG：返回 (文本生成器, 来源列表, 是否有依据)。"""
+        sources = self.store.search(query, document_id=document_id)
+        has_evidence = bool(sources)
+        messages = [ChatMessage("system", SYSTEM_PROMPT)]
+        for h in history or []:
+            messages.append(ChatMessage(h.get("role", "user"), h.get("content", "")))
+        if has_evidence:
+            messages.append(
+                ChatMessage(
+                    "system",
+                    f"【参考资料】\n{_format_context(sources)}\n"
+                    "请依据以上资料回答，并按要求标注来源编号。",
+                )
+            )
+        messages.append(ChatMessage("user", query))
+
+        source_out = []
+        for s in sources:
+            source_out.append(
+                {
+                    "document_id": s["document_id"],
+                    "document_name": s["document_name"],
+                    "chapter": s["chapter"],
+                    "page": s["page"],
+                    "excerpt": s["text"][:200],
+                }
+            )
+        return self.provider.stream_chat(messages), source_out, has_evidence
 
     # ---------------- 自动总结 ----------------
 

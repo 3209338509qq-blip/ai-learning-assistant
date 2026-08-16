@@ -210,6 +210,44 @@ def test_short_answer_self_evaluation(client, app_env):
     assert len(client.get("/api/wrong-questions").json()) == 1
 
 
+def test_chat_stream_sse(client, app_env):
+    """SSE 流式对话：delta 事件 + done 事件 + 消息持久化。"""
+    _upload_txt(client)
+    app_env["set_reply"]("流式回答第一段。第二段。")
+
+    resp = client.post("/api/chat/stream", json={"message": "什么是装饰器？"})
+    assert resp.status_code == 200, resp.text
+    assert "text/event-stream" in resp.headers.get("content-type", "")
+
+    body = resp.text
+    assert '"type": "delta"' in body
+    assert '"type": "done"' in body
+
+    # 流结束后消息已持久化（user + assistant 完整内容）
+    convs = client.get("/api/chat/conversations").json()
+    assert len(convs) == 1
+    hist = client.get(f"/api/chat/conversations/{convs[0]['id']}").json()
+    roles = [m["role"] for m in hist["messages"]]
+    assert roles == ["user", "assistant"]
+    assert hist["messages"][-1]["content"] == "流式回答第一段。第二段。"
+
+
+def test_chat_stream_error_keeps_user_message(client, app_env):
+    """AI 流式失败时：用户消息已持久化，前端收到 error 事件。"""
+    _upload_txt(client)
+    app_env["set_reply"](lambda messages: (_ for _ in ()).throw(RuntimeError("模拟AI故障")))
+
+    resp = client.post("/api/chat/stream", json={"message": "会失败的问题"})
+    assert resp.status_code == 200
+    assert '"type": "error"' in resp.text
+
+    convs = client.get("/api/chat/conversations").json()
+    assert len(convs) == 1
+    hist = client.get(f"/api/chat/conversations/{convs[0]['id']}").json()
+    assert hist["messages"][0]["role"] == "user"
+    assert hist["messages"][0]["content"] == "会失败的问题"
+
+
 def test_settings_endpoint(client):
     data = client.get("/api/settings").json()
     assert data["ai_provider"] == "fake"
