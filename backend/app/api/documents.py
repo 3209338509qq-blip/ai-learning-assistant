@@ -137,9 +137,14 @@ async def upload_document(
         size_bytes=size,
         status="pending",
     )
-    db.add(doc)
-    db.commit()
-    db.refresh(doc)
+    try:
+        db.add(doc)
+        db.commit()
+        db.refresh(doc)
+    except Exception:
+        db.rollback()
+        upload_path.unlink(missing_ok=True)  # 入库失败时清理已写文件，避免孤儿
+        raise
 
     background.add_task(_process_document, doc.id, upload_path)
     return doc
